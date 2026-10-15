@@ -13,7 +13,9 @@ Every copy is saved. Press `⌘⇧V`, find it, paste it.
 
 English · [简体中文](README.zh-CN.md)
 
-<img src="screenshots/panel-en.png" alt="DittoMac Quick Paste window" width="560">
+<a href="screenshots/panel-en.png"><img src="screenshots/panel-en.png" alt="DittoMac Quick Paste window — click for full resolution" width="560"></a>
+
+<sub>Rendered from the native app at 3× resolution with demo data. Click to view full size.</sub>
 
 </div>
 
@@ -112,6 +114,7 @@ swift build -c release
 ./scripts/make-app.sh      # produces DittoMac.app
 ./scripts/make-dmg.sh      # produces DittoMac-vX.Y.Z-arm64.dmg
 ./scripts/run-tests.sh     # runs the test suite
+./scripts/make-screenshots.sh # regenerates both 3× README screenshots (macOS desktop)
 ```
 
 Pushing a tag such as `v1.2.3` triggers GitHub Actions to test, build and attach the DMG and

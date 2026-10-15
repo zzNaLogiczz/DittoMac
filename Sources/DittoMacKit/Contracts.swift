@@ -54,8 +54,12 @@ public struct RawClip: @unchecked Sendable {
     }
 
     public var byteSize: Int {
-        (text?.utf8.count ?? 0) + (rtfData?.count ?? 0)
-            + (htmlData?.count ?? 0) + (imageData?.count ?? 0)
+        // Keep each optional addition separate for the Swift compiler on macOS 14 CI.
+        var total = text?.utf8.count ?? 0
+        total += rtfData?.count ?? 0
+        total += htmlData?.count ?? 0
+        total += imageData?.count ?? 0
+        return total
     }
 
     /// 内容哈希,用于去重(同一内容再次复制 → 置顶而不是新建)。

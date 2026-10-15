@@ -13,7 +13,9 @@
 
 [English](README.md) · 简体中文
 
-<img src="screenshots/panel-zh.png" alt="DittoMac 快速粘贴窗口" width="560">
+<a href="screenshots/panel-zh.png"><img src="screenshots/panel-zh.png" alt="DittoMac 快速粘贴窗口 — 点击查看高清原图" width="560"></a>
+
+<sub>从原生应用以 3 倍分辨率渲染，使用演示数据。点击查看高清原图。</sub>
 
 </div>
 
@@ -101,6 +103,7 @@ swift build -c release
 ./scripts/make-app.sh      # 生成 DittoMac.app
 ./scripts/make-dmg.sh      # 生成 DittoMac-vX.Y.Z-arm64.dmg
 ./scripts/run-tests.sh     # 运行测试
+./scripts/make-screenshots.sh # 重新生成中英文 3 倍清晰度截图（需 macOS 桌面）
 ```
 
 推送 `v1.2.3` 这样的 tag 会触发 GitHub Actions 自动测试、构建,并把 DMG 和 tar.gz 附加到 Release。
