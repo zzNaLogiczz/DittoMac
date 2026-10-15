@@ -296,7 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 菜单栏图标:原版 Ditto 图标(Ditto2.ico);暂停时右上角红色暂停角标(对应原版 NoCopyCb 换图标行为)
+    /// 菜单栏复用新版 macOS 应用图标；暂停时叠加红色暂停角标。
     private func refreshStatusIcon() {
         guard let button = statusItem?.button else { return }
         let paused = monitor.isPaused
@@ -314,7 +314,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return true
         }
-        img.isTemplate = false   // 彩色原版图标
+        img.isTemplate = false   // 保留 macOS 图标的彩色外观
         button.image = img
         button.contentTintColor = nil
     }

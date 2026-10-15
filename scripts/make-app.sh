@@ -13,15 +13,16 @@ if [[ ! -x "${BIN}" ]]; then
   exit 1
 fi
 
+# 每次打包都从新版源图生成图标，避免沿用旧 ICNS。
+zsh "${ROOT}/scripts/make-icon.sh"
+
 rm -rf "${APP}"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
 cp "${BIN}" "${APP}/Contents/MacOS/DittoMac"
 
-# 应用图标(取自原版 Ditto 的 Ditto2.ico,GPL-3.0)
+# macOS 版应用图标（基于原版 Ditto 标识重新设计，GPL-3.0）
 ICON_SRC="${ROOT}/Resources/AppIcon.icns"
-if [[ -f "${ICON_SRC}" ]]; then
-  cp "${ICON_SRC}" "${APP}/Contents/Resources/AppIcon.icns"
-fi
+cp "${ICON_SRC}" "${APP}/Contents/Resources/AppIcon.icns"
 
 cat > "${APP}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
