@@ -69,6 +69,19 @@ Optional: set repo secrets `DITTOMAC_SIGN_P12` (base64 of a p12) and
 `DITTOMAC_SIGN_PASSWORD` to sign releases with a stable self-signed certificate —
 users then keep their Accessibility grant across app updates.
 
+## Resources
+
+`Resources/icon-source.png` is the 256px layer extracted from the original Ditto
+`Ditto2.ico`; regenerate `AppIcon.icns` with:
+
+```zsh
+mkdir -p Resources/AppIcon.iconset
+for s in 16 32 64 128 256 512; do
+  sips -z $s $s Resources/icon-source.png --out Resources/AppIcon.iconset/icon_${s}x${s}.png
+done
+iconutil -c icns Resources/AppIcon.iconset -o Resources/AppIcon.icns
+```
+
 ## License
 
 GPL-3.0 — this project follows the license of Ditto, whose behavior specification it is
