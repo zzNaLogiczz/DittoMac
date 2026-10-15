@@ -1,0 +1,59 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: ./scripts/run-tests.sh
+
+      - name: Build app
+        env:
+          DITTOMAC_VERSION: ${{ github.ref_name }}
+        run: |
+          swift build -c release
+          ./scripts/make-app.sh
+
+      # 可选:用仓库 Secret 里的稳定签名证书签名(p12 base64)。
+      # 设置 DITTOMAC_SIGN_P12 / DITTOMAC_SIGN_PASSWORD 两个 Secret 后,
+      # 所有发布版用同一证书签名 → 用户更新版本时辅助功能授权保持有效。
+      - name: Stable signing (optional)
+        if: env.DITTOMAC_SIGN_P12 != ''
+        env:
+          DITTOMAC_SIGN_P12: ${{ secrets.DITTOMAC_SIGN_P12 }}
+          DITTOMAC_SIGN_PASSWORD: ${{ secrets.DITTOMAC_SIGN_PASSWORD }}
+        run: |
+          p12="$RUNNER_TEMP/dittomac.p12"
+          echo "$DITTOMAC_SIGN_P12" | base64 --decode > "$p12"
+          security import "$p12" -k "$HOME/Library/Keychains/login.keychain-db" \
+            -P "$DITTOMAC_SIGN_PASSWORD" -T /usr/bin/codesign || true
+          security find-identity -v -p codesigning
+          IDENTITY=$(security find-identity -v -p codesigning | awk '/"(DittoMac|DittoMac Dev)"/{print $2; exit}')
+          codesign --force --sign "$IDENTITY" --identifier local.dittomac.app DittoMac.app
+
+      - name: Package tar.gz(无 quarantine,curl 安装用)
+        run: |
+          tar -czf DittoMac-${{ github.ref_name }}-arm64.tar.gz DittoMac.app
+          shasum -a 256 DittoMac-${{ github.ref_name }}-arm64.tar.gz > DittoMac-${{ github.ref_name }}-arm64.tar.gz.sha256
+
+      - name: Package DMG(拖拽安装)
+        env:
+          DITTOMAC_VERSION: ${{ github.ref_name }}
+        run: ./scripts/make-dmg.sh
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            DittoMac-${{ github.ref_name }}-arm64.dmg
+            DittoMac-${{ github.ref_name }}-arm64.tar.gz
+            DittoMac-${{ github.ref_name }}-arm64.tar.gz.sha256
+          generate_release_notes: true
