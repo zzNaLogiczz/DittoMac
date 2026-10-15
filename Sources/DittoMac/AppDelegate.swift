@@ -69,7 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if UserDefaults.standard.bool(forKey: DittoSettings.pausedKey) {
             monitor.setPaused(true)
-            pauseItem.state = .on
         }
         refreshStatusIcon()
 
@@ -136,9 +135,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 let alert = NSAlert()
                 alert.alertStyle = .warning
-                alert.messageText = "剪贴板历史数据库已重建"
-                alert.informativeText = "原数据库疑似损坏,已自动备份到:\n\(backup)\n并新建了空数据库继续记录。"
-                alert.addButton(withTitle: "好")
+                alert.messageText = L10n.dlgDbRebuiltTitle
+                alert.informativeText = L10n.dlgDbRebuiltBody + "\(backup)\n" + self.t_dbRebuiltTail()
+                alert.addButton(withTitle: L10n.dlgOk)
                 alert.runModal()
             }
         }
@@ -262,12 +261,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let ok = HotKeyCenter.shared.register(keyCode: code, carbonModifiers: mods, id: hotKeyID) { [weak self] in
             DispatchQueue.main.async { self?.togglePanel() }
         }
-        if ok {
-            openHistoryItem.title = "打开历史  \(Fmt.hotKeyString(code: code, mods: mods))"
-        } else {
-            openHistoryItem.title = "打开历史  ⚠️ 热键被其他应用占用,请到设置更换"
+        if !ok {
             PerfLog.event("HOTKEY_CONFLICT", Fmt.hotKeyString(code: code, mods: mods))
         }
+    }
+
+    /// 数据库重建弹窗的收尾句
+    private func t_dbRebuiltTail() -> String {
+        L10n.t("并新建了空数据库继续记录。", "An empty database was created and recording continues.")
     }
 
     // MARK: - 状态栏
@@ -283,11 +284,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshStatusIcon()
     }
 
-    /// 左键:秒开面板;右键:弹出菜单
+    /// 左键:秒开面板;右键:弹出菜单(每次动态构建 → 语言切换即时生效)
     @objc private func statusItemClicked(_ sender: Any?) {
         let type = NSApp.currentEvent?.type
         if type == .rightMouseUp || type == .rightMouseDown {
-            statusItem?.menu = statusMenu
+            statusItem?.menu = buildStatusMenu()
             statusItem?.button?.performClick(nil) // 挂上 menu 后模拟点击 → 弹出菜单
             statusItem?.menu = nil
         } else {
@@ -318,49 +319,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.contentTintColor = nil
     }
 
-    /// 托盘右键菜单(原版 IDR_MENU 的 macOS 映射,保持原顺序)
-    private lazy var statusMenu: NSMenu = {
+    /// 托盘右键菜单(原版 IDR_MENU 的 macOS 映射,保持原顺序;文案随 L10n)
+    private func buildStatusMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.items = [
-            menuItem("显示快速粘贴窗口", #selector(togglePanel)),
-            menuItem("选项…", #selector(showSettings)),
+            menuItem(L10n.menuShowQuickPaste, #selector(togglePanel)),
+            menuItem(L10n.menuOptions, #selector(showSettings)),
             NSMenuItem.separator(),
-            menuItem("显示启动消息", #selector(showStartupMessage)),
-            menuItem("全局热键…", #selector(showSettings)),
-            menuItem("清空剪贴板数据…", #selector(clearHistory)),
+            menuItem(L10n.menuStartupMessage, #selector(showStartupMessage)),
+            menuItem(L10n.menuGlobalHotKeys, #selector(showSettings)),
+            menuItem(L10n.menuClearClipData, #selector(clearHistory)),
             NSMenuItem.separator(),
-            menuItem("备份数据库…", #selector(backupDatabase)),
-            menuItem("恢复数据库…", #selector(restoreDatabase)),
+            menuItem(L10n.menuBackup, #selector(backupDatabase)),
+            menuItem(L10n.menuRestore, #selector(restoreDatabase)),
             NSMenuItem.separator(),
-            menuItem("导入剪贴(文本文件)…", #selector(importClips)),
+            menuItem(L10n.menuImportClips, #selector(importClips)),
             NSMenuItem.separator(),
-            menuItem("帮助…", #selector(showHelp)),
+            menuItem(L10n.menuHelp, #selector(showHelp)),
             NSMenuItem.separator(),
-            connectItem,
-            menuItem("保存当前剪贴板", #selector(saveCurrentClipboard)),
+            buildConnectItem(),
+            menuItem(L10n.menuSaveCurrentClip, #selector(saveCurrentClipboard)),
             NSMenuItem.separator(),
-            quitItem,
+            menuItem(L10n.menuExit, #selector(quit)),
         ]
         return menu
-    }()
+    }
 
     /// 原版 "Connect To Clipboard":勾选态 = 已连接(未暂停)
-    private lazy var connectItem: NSMenuItem = {
-        let item = menuItem("连接剪贴板", #selector(togglePaused))
+    private func buildConnectItem() -> NSMenuItem {
+        let item = menuItem(L10n.menuConnectClipboard, #selector(togglePaused))
         item.state = monitor.isPaused ? .off : .on
         return item
-    }()
-
-    private lazy var openHistoryItem: NSMenuItem = menuItem("打开历史", #selector(togglePanel))
-
-    private lazy var pauseItem: NSMenuItem = menuItem("暂停记录", #selector(togglePaused))
-
-    private lazy var settingsItem: NSMenuItem = menuItem("设置…", #selector(showSettings))
-
-    private lazy var clearHistoryItem: NSMenuItem = menuItem("清空历史…", #selector(clearHistory))
-
-    private lazy var quitItem: NSMenuItem = menuItem("退出", #selector(quit))
+    }
 
     private func menuItem(_ title: String, _ action: Selector) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
@@ -372,11 +363,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func buildSystemMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(menuItem("选项…", #selector(showSettings)))
+        menu.addItem(menuItem(L10n.menuOptions, #selector(showSettings)))
 
-        let quick = NSMenuItem(title: "快速选项", action: nil, keyEquivalent: "")
+        let quick = NSMenuItem(title: L10n.menuQuickOptions, action: nil, keyEquivalent: "")
         let quickMenu = NSMenu()
-        let lines = NSMenuItem(title: "每条行数", action: nil, keyEquivalent: "")
+        let lines = NSMenuItem(title: L10n.menuLinesPerClip, action: nil, keyEquivalent: "")
         let linesMenu = NSMenu()
         let current = UserDefaults.standard.integer(forKey: DittoSettings.linesPerRowKey) == 0
             ? DittoSettings.defaultLinesPerRow
@@ -390,11 +381,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lines.submenu = linesMenu
         quickMenu.addItem(lines)
 
-        let pos = NSMenuItem(title: "出现位置", action: nil, keyEquivalent: "")
+        let pos = NSMenuItem(title: L10n.menuPositioning, action: nil, keyEquivalent: "")
         let posMenu = NSMenu()
         let mode = UserDefaults.standard.string(forKey: DittoSettings.positionModeKey)
             ?? DittoSettings.defaultPositionMode
-        let posOptions = [("atCursor", "光标处"), ("atPrevious", "上次位置")]
+        let posOptions = [("atCursor", L10n.menuAtCursor), ("atPrevious", L10n.menuAtPrevious)]
         for (value, title) in posOptions {
             let mi = menuItem(title, #selector(positionModePicked(_:)))
             mi.state = value == mode ? .on : .off
@@ -404,21 +395,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pos.submenu = posMenu
         quickMenu.addItem(pos)
 
-        let top = menuItem("常驻置顶(Always on Top)", #selector(panelTogglePersistent))
+        let top = menuItem(L10n.menuAlwaysOnTop, #selector(panelTogglePersistent))
         top.state = panelController.isPersistentMode ? .on : .off
         quickMenu.addItem(top)
         quick.submenu = quickMenu
         menu.addItem(quick)
 
         menu.addItem(.separator())
-        menu.addItem(menuItem("清空剪贴板数据…", #selector(clearHistory)))
+        menu.addItem(menuItem(L10n.menuClearClipData, #selector(clearHistory)))
         menu.addItem(.separator())
-        menu.addItem(menuItem("备份数据库…", #selector(backupDatabase)))
+        menu.addItem(menuItem(L10n.menuBackup, #selector(backupDatabase)))
         menu.addItem(.separator())
-        menu.addItem(connectItem)
-        menu.addItem(menuItem("保存当前剪贴板", #selector(saveCurrentClipboard)))
+        menu.addItem(buildConnectItem())
+        menu.addItem(menuItem(L10n.menuSaveCurrentClip, #selector(saveCurrentClipboard)))
         menu.addItem(.separator())
-        menu.addItem(quitItem)
+        menu.addItem(menuItem(L10n.menuExit, #selector(quit)))
         return menu
     }
 
@@ -453,8 +444,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 启动消息(原版气泡等价):首次启动或从菜单触发
     @objc private func showStartupMessage() {
         let alert = NSAlert()
-        alert.messageText = "DittoMac 正在菜单栏运行"
-        alert.informativeText = "点击菜单栏图标或按全局热键(默认 ⌘⇧V)打开快速粘贴窗口。\n回车粘贴 / ⇧回车纯文本 / ⌥回车属性 / ⌘1..0 快选前十条 / Esc 关闭。"
+        alert.messageText = L10n.dlgStartupTitle
+        alert.informativeText = L10n.dlgStartupBody
         alert.runModal()
         UserDefaults.standard.set(true, forKey: "ditto.showedStartupMessage")
     }
@@ -462,14 +453,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 帮助(原版 Help 菜单等价):快捷键速查
     @objc private func showHelp() {
         let alert = NSAlert()
-        alert.messageText = "DittoMac 快捷键"
-        alert.informativeText = """
-        Enter 粘贴 · ⇧Enter 纯文本粘贴 · ⌥Enter 属性 · 双击 粘贴
-        Esc 三级退出(浮窗→清过滤→关窗) · ⇧Esc 强制关窗
-        F3 完整描述 · N/P 上下一条 · F5 刷新 · ⌥C 清过滤
-        ⌘C 复制选中 · ⌘A 全选 · ⌘1..0 粘贴第 1-10 条
-        ⌃Space 常驻置顶 · 列表打字直接搜索 · Delete 删除条目
-        """
+        alert.messageText = L10n.dlgHelpTitle
+        alert.informativeText = L10n.dlgHelpBody
         alert.runModal()
     }
 
@@ -501,11 +486,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let ok = self?.store.backup(to: url) ?? false
             let alert = NSAlert()
             if ok {
-                alert.messageText = "备份完成"
+                alert.messageText = L10n.dlgBackupDone
                 alert.informativeText = url.path
             } else {
                 alert.alertStyle = .critical
-                alert.messageText = "备份失败"
+                alert.messageText = L10n.dlgBackupFailed
             }
             alert.runModal()
         }
@@ -516,7 +501,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.allowedContentTypes = [.data]
-        panel.message = "选择 DittoMac 备份的 .sqlite 文件(将替换当前历史并重启)"
+        panel.message = L10n.dlgRestorePrompt
         panel.begin { [weak self] response in
             guard response == .OK, let url = panel.url, let self else { return }
             let dbURL = FileManager.default
@@ -527,7 +512,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 _ = self.store.backup(to: URL(fileURLWithPath: dbURL.path + ".pre-restore"))
                 try? FileManager.default.removeItem(at: dbURL)
                 try FileManager.default.copyItem(at: url, to: dbURL)
-                alert.messageText = "已恢复,即将重启应用"
+                alert.messageText = L10n.dlgRestoredTitle
+                alert.addButton(withTitle: L10n.dlgOk)
                 alert.runModal()
                 let bundlePath = Bundle.main.bundlePath
                 if !bundlePath.isEmpty {
@@ -536,7 +522,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 NSApp.terminate(nil)
             } catch {
                 alert.alertStyle = .critical
-                alert.messageText = "恢复失败:\(error.localizedDescription)"
+                alert.messageText = L10n.dlgRestoreFailed + " \(error.localizedDescription)"
                 alert.runModal()
             }
         }
@@ -554,15 +540,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func showAccessibilityAlert(startup: Bool) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = startup ? "粘贴回需要辅助功能权限" : "本次仅复制到剪贴板"
-        alert.informativeText = """
-        模拟 ⌘V 把内容粘贴到原位置需要"辅助功能"权限。
-        当前未授权,所以双击/回车只把内容放进了剪贴板,需要手动 ⌘V。
-        (每次重新构建/覆盖安装后,系统可能要求重新授权)
-        """
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "稍后")
-        let suppress = NSButton(checkboxWithTitle: "不再提示(可在设置中查看状态)", target: nil, action: nil)
+        alert.messageText = startup ? L10n.axStartupTitle : L10n.axPasteTitle
+        alert.informativeText = L10n.axBody
+        alert.addButton(withTitle: L10n.btnOpenSettings)
+        alert.addButton(withTitle: L10n.btnLater)
+        let suppress = NSButton(checkboxWithTitle: L10n.axDontAsk, target: nil, action: nil)
         alert.accessoryView = suppress
         if alert.runModal() == .alertFirstButtonReturn {
             Permissions.openAccessibilitySettings()
@@ -584,8 +566,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let paused = !monitor.isPaused
         UserDefaults.standard.set(paused, forKey: DittoSettings.pausedKey)
         monitor.setPaused(paused)
-        connectItem.state = paused ? .off : .on
-        pauseItem.state = paused ? .on : .off
         refreshStatusIcon()
         NotificationCenter.default.post(name: .dittoPausedChanged, object: nil)
     }
@@ -593,10 +573,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func clearHistory() {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "清空历史?"
-        alert.informativeText = "将删除全部未置顶的条目,此操作不可撤销。"
-        alert.addButton(withTitle: "清空")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = L10n.dlgClearTitle
+        alert.informativeText = L10n.dlgClearBody
+        alert.addButton(withTitle: L10n.dlgClear)
+        alert.addButton(withTitle: L10n.dlgCancel)
         alert.buttons.first?.hasDestructiveAction = true
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         store.clear(keepingPinned: true)

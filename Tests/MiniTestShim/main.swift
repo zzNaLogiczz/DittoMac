@@ -33,6 +33,7 @@ let suites: [(String, () -> (pass: Int, fail: Int))] = [
     ("PerfTests", { runSuite("PerfTests", PerfTests.self, PerfTests.registrations) }),
     ("SpecialPasteTests", { runSuite("SpecialPasteTests", SpecialPasteTests.self, SpecialPasteTests.registrations) }),
     ("ClipDescriptionTests", { runSuite("ClipDescriptionTests", ClipDescriptionTests.self, ClipDescriptionTests.registrations) }),
+    ("L10nTests", { runSuite("L10nTests", L10nTests.self, L10nTests.registrations) }),
 ]
 for (name, runner) in suites {
     let (p, f) = runner()

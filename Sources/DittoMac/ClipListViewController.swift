@@ -23,7 +23,7 @@ final class ClipListViewController: NSViewController {
     private let store: ClipStoring
     private var tableView: DittoTableView!
     private var debounceWork: DispatchWorkItem?
-    private let emptyLabel = NSTextField(labelWithString: "没有匹配的条目")
+    private let emptyLabel = NSTextField(labelWithString: "")
     /// 图片缩略图缓存(可见行按需加载)
     private let thumbCache = NSCache<NSNumber, NSImage>()
 
@@ -121,6 +121,7 @@ final class ClipListViewController: NSViewController {
             : store.search(currentQuery, limit: 500)
         tableView.rowHeight = Self.rowHeight
         tableView.reloadData()
+        emptyLabel.stringValue = L10n.emptyList
         emptyLabel.isHidden = !items.isEmpty
 
         if !keepIDs.isEmpty {
@@ -338,11 +339,11 @@ final class ClipListViewController: NSViewController {
         }
 
         // (Groups/Send To/Compare/Go to Entry:分组与好友系统未移植,预注册省略)
-        add("查看完整描述", #selector(menuFullDescription))
-        let special = NSMenuItem(title: "特殊粘贴", action: nil, keyEquivalent: "")
+        add(L10n.menuViewFullDesc, #selector(menuFullDescription))
+        let special = NSMenuItem(title: L10n.menuSpecialPaste, action: nil, keyEquivalent: "")
         let specialMenu = NSMenu()
         // 顺序与分隔线逐位对齐 upstream IDR_QUICK_PASTE(CP_Main.rc:483-512)
-        specialMenu.addItem(withTitle: "仅粘贴纯文本", action: #selector(menuPastePlain), target: self)
+        specialMenu.addItem(withTitle: L10n.menuPastePlain, action: #selector(menuPastePlain), target: self)
         specialMenu.addItem(.separator())
         specialMenu.addItem(withTitle: "UPPER CASE", action: #selector(menuUpper), target: self)
         specialMenu.addItem(withTitle: "lower case", action: #selector(menuLower), target: self)
@@ -368,7 +369,7 @@ final class ClipListViewController: NSViewController {
         multiV.isEnabled = selectedItems().count >= 2
         specialMenu.addItem(multiV)
         specialMenu.addItem(.separator())
-        specialMenu.addItem(withTitle: "粘贴(不改剪贴顺序)", action: #selector(menuPasteNoReorder), target: self)
+        specialMenu.addItem(withTitle: L10n.menuPasteNoReorder, action: #selector(menuPasteNoReorder), target: self)
         specialMenu.addItem(.separator())
         specialMenu.addItem(withTitle: "Typoglycemia", action: #selector(menuTypoglycemia), target: self)
         specialMenu.addItem(withTitle: "Slugify", action: #selector(menuSlugify), target: self)
@@ -378,14 +379,14 @@ final class ClipListViewController: NSViewController {
         special.submenu = specialMenu
         menu.addItem(special)
 
-        add("以此条过滤列表", #selector(menuFilterOnClip))
+        add(L10n.menuFilterOnClip, #selector(menuFilterOnClip))
         menu.addItem(.separator())
-        add("删除条目", #selector(menuDelete))
+        add(L10n.menuDeleteEntry, #selector(menuDelete))
         menu.addItem(.separator())
-        add("属性", #selector(menuProperties))
-        let quick = NSMenuItem(title: "快速属性", action: nil, keyEquivalent: "")
+        add(L10n.menuProperties, #selector(menuProperties))
+        let quick = NSMenuItem(title: L10n.menuQuickProps, action: nil, keyEquivalent: "")
         let quickMenu = NSMenu()
-        let noDeleteTitle = (item?.noDelete == true) ? "Auto Delete" : "Never Auto Delete"
+        let noDeleteTitle = (item?.noDelete == true) ? L10n.menuAutoDelete : L10n.menuNeverDelete
         quickMenu.addItem(withTitle: noDeleteTitle, action: #selector(menuToggleNoDelete), target: self)
         for disabled in ["Remove Hot Key", "Remove Quick Paste"] {   // 条目热键/快速粘贴文本未移植(预注册豁免)
             let mi = NSMenuItem(title: disabled, action: nil, keyEquivalent: "")
@@ -395,23 +396,23 @@ final class ClipListViewController: NSViewController {
         quick.submenu = quickMenu
         menu.addItem(quick)
 
-        let order = NSMenuItem(title: "条目顺序", action: nil, keyEquivalent: "")
+        let order = NSMenuItem(title: L10n.menuClipOrder, action: nil, keyEquivalent: "")
         let orderMenu = NSMenu()
         orderMenu.addItem(withTitle: "Move To Top", action: #selector(menuMoveTop), target: self)
         orderMenu.addItem(withTitle: "Move Up", action: #selector(menuMoveUp), target: self)
         orderMenu.addItem(withTitle: "Move Down", action: #selector(menuMoveDown), target: self)
         orderMenu.addItem(withTitle: "Move To Last", action: #selector(menuMoveLast), target: self)
         orderMenu.addItem(.separator())
-        orderMenu.addItem(withTitle: "置顶(Sticky)", action: #selector(menuPinTop), target: self)
-        orderMenu.addItem(withTitle: "取消置顶", action: #selector(menuUnpin), target: self)
+        orderMenu.addItem(withTitle: L10n.menuSticky, action: #selector(menuPinTop), target: self)
+        orderMenu.addItem(withTitle: L10n.menuUnsticky, action: #selector(menuUnpin), target: self)
         order.submenu = orderMenu
         menu.addItem(order)
 
         menu.addItem(.separator())
-        let ex = NSMenuItem(title: "导入/导出", action: nil, keyEquivalent: "")
+        let ex = NSMenuItem(title: L10n.menuImportExport, action: nil, keyEquivalent: "")
         let exMenu = NSMenu()
-        exMenu.addItem(withTitle: "导入剪贴(文本文件)", action: #selector(menuImportClips), target: self)
-        exMenu.addItem(withTitle: "导出为文本文件", action: #selector(menuExportText), target: self)
+        exMenu.addItem(withTitle: L10n.menuImportFromFiles, action: #selector(menuImportClips), target: self)
+        exMenu.addItem(withTitle: L10n.menuExportText, action: #selector(menuExportText), target: self)
         let exportImg = NSMenuItem(title: "Export to Image File(s)", action: #selector(menuExportImage), keyEquivalent: "")
         exportImg.target = self
         exportImg.isEnabled = selectedItem()?.kind == .image
@@ -522,7 +523,7 @@ final class ClipListViewController: NSViewController {
             guard response == .OK else { return }
             for url in panel.urls {
                 if let text = try? String(contentsOf: url, encoding: .utf8) {
-                    _ = self.store.insert(RawClip(text: text, appName: "导入"), maxDataBytes: 20 << 20)
+                    _ = self.store.insert(RawClip(text: text, appName: L10n.importedAppName), maxDataBytes: 20 << 20)
                 }
             }
             self.refreshKeepingSelection()

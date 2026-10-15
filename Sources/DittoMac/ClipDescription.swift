@@ -108,11 +108,11 @@ enum ClipDescription {
                          lastUsedAt: Date? = nil,
                          neverAutoDelete: Bool = false) -> String {
         let added = Self.metaDateFormatter.string(from: item.createdAt)
-        let lastUsed = (lastUsedAt ?? item.lastPasteAt).map { "上次使用: " + Self.metaDateFormatter.string(from: $0) }
-            ?? "上次使用: 从未粘贴"
-        var parts = ["添加: " + added, lastUsed]
-        if neverAutoDelete || item.noDelete { parts.append("永不自动删除") }
-        if item.pinned { parts.append("置顶") }
+        let lastUsed = (lastUsedAt ?? item.lastPasteAt).map { L10n.metaLastUsed + Self.metaDateFormatter.string(from: $0) }
+            ?? L10n.metaLastUsed + L10n.metaNeverPasted
+        var parts = [L10n.metaAdded + added, lastUsed]
+        if neverAutoDelete || item.noDelete { parts.append(L10n.metaNeverDelete) }
+        if item.pinned { parts.append(L10n.metaSticky) }
         return parts.joined(separator: " | ")
     }
 

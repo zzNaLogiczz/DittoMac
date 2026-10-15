@@ -43,15 +43,15 @@ enum Fmt {
         return f
     }()
 
-    /// 刚刚 / N分钟前 / N小时前 / 昨天 HH:mm / MM-dd HH:mm / yyyy-MM-dd
+    /// 刚刚/N分钟前…(中英,随 L10n 即时切换)
     static func relativeTime(_ date: Date) -> String {
         let now = Date()
         let sec = Int(now.timeIntervalSince(date))
-        if sec < 60 { return "刚刚" }
-        if sec < 3600 { return "\(sec / 60) 分钟前" }
-        if sec < 86_400 { return "\(sec / 3600) 小时前" }
+        if sec < 60 { return L10n.timeJustNow }
+        if sec < 3600 { return L10n.timeMinutesAgo(sec / 60) }
+        if sec < 86_400 { return L10n.timeHoursAgo(sec / 3600) }
         if calendar.isDateInYesterday(date) {
-            return "昨天 " + timeFormatter.string(from: date)
+            return L10n.timeYesterday + " " + timeFormatter.string(from: date)
         }
         if calendar.isDate(date, equalTo: now, toGranularity: .year) {
             return monthFormatter.string(from: date)
@@ -79,15 +79,15 @@ enum Fmt {
         }
     }
 
-    /// ClipKind → 中文名
+    /// ClipKind → 本地化名(随 L10n)
     static func kindLabel(for kind: ClipKind) -> String {
         switch kind {
-        case .text: return "纯文本"
-        case .rtf: return "富文本"
-        case .html: return "网页"
-        case .image: return "图片"
-        case .files: return "文件"
-        case .unknown: return "未知"
+        case .text: return L10n.kindText
+        case .rtf: return L10n.kindRTF
+        case .html: return L10n.kindHTML
+        case .image: return L10n.kindImage
+        case .files: return L10n.kindFiles
+        case .unknown: return L10n.kindUnknown
         }
     }
 

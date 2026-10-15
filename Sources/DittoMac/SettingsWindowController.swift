@@ -83,7 +83,7 @@ final class HotKeyRecorderView: NSView {
         let mods = DittoSettings.carbonMask(from: event.modifierFlags)
         if mods == 0 && !Self.functionKeyCodes.contains(event.keyCode) {
             label.textColor = .systemRed
-            label.stringValue = "需含 ⌘/⌥/⌃/⇧ 修饰键,或按 F 功能键"
+            label.stringValue = L10n.recNeedModifier
             return
         }
         setRecording(false)
@@ -107,12 +107,12 @@ final class HotKeyRecorderView: NSView {
             layer?.borderColor = NSColor.controlAccentColor.cgColor
             layer?.borderWidth = 1.5
             label.textColor = NSColor.controlAccentColor
-            label.stringValue = "按下新的组合键…(Esc 取消)"
+            label.stringValue = L10n.recPressKeys
         } else {
             layer?.borderColor = NSColor.separatorColor.cgColor
             layer?.borderWidth = 1
             label.textColor = .labelColor
-            label.stringValue = currentText.isEmpty ? "点击设置快捷键" : currentText
+            label.stringValue = currentText.isEmpty ? L10n.recClickToSet : currentText
         }
     }
 }
@@ -131,7 +131,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false)
-        window.title = "设置"
+        window.title = L10n.settingsTitle
         window.contentViewController = content
         window.isReleasedWhenClosed = false // 由 AppDelegate 持有并在关闭后释放
         super.init(window: window)
@@ -174,6 +174,14 @@ private final class SettingsViewController: NSViewController {
         ) { [weak self] _ in
             self?.refreshDynamicStates()
         })
+        // 语言切换 → 即时重建整个设置界面(全量文案 + 语言行选中态)
+        observers.append(NotificationCenter.default.addObserver(
+            forName: L10n.changedNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            guard let self else { return }
+            self.view.subviews.forEach { $0.removeFromSuperview() }
+            self.buildContent()
+        })
     }
 
     deinit {
@@ -202,60 +210,61 @@ private final class SettingsViewController: NSViewController {
             view.heightAnchor.constraint(greaterThanOrEqualToConstant: 360),
         ])
 
-        stack.addArrangedSubview(sectionHeader("录制"))
-        stack.addArrangedSubview(makeRow("保留条数", makePopup(
+        stack.addArrangedSubview(sectionHeader(L10n.setSectionRecording))
+        stack.addArrangedSubview(makeRow(L10n.setKeepCount, makePopup(
             titles: ["100", "500", "1000", "5000"],
             values: [100, 500, 1000, 5000],
             current: intSetting(DittoSettings.maxItemsKey, default: DittoSettings.defaultMaxItems),
             action: #selector(maxItemsChanged(_:)))))
 
-        stack.addArrangedSubview(makeRow("保留天数", makePopup(
-            titles: ["7 天", "30 天", "90 天", "365 天"],
+        stack.addArrangedSubview(makeRow(L10n.setKeepDays, makePopup(
+            titles: ["7 \(L10n.setDaysUnit)", "30 \(L10n.setDaysUnit)", "90 \(L10n.setDaysUnit)", "365 \(L10n.setDaysUnit)"],
             values: [7, 30, 90, 365],
             current: intSetting(DittoSettings.maxAgeDaysKey, default: DittoSettings.defaultMaxAgeDays),
             action: #selector(maxAgeDaysChanged(_:)))))
 
-        stack.addArrangedSubview(makeRow("单条上限", makePopup(
+        stack.addArrangedSubview(makeRow(L10n.setSizeLimit, makePopup(
             titles: ["5 MB", "20 MB", "50 MB"],
             values: [5, 20, 50].map { $0 * 1024 * 1024 },
             current: intSetting(DittoSettings.maxDataBytesKey, default: DittoSettings.defaultMaxDataBytes),
             action: #selector(maxDataBytesChanged(_:)),
             customTitle: { "\($0 / 1024 / 1024) MB" })))
 
-        stack.addArrangedSubview(sectionHeader("快捷键"))
-        stack.addArrangedSubview(makeRow("全局热键", makeHotKeyRow()))
+        stack.addArrangedSubview(sectionHeader(L10n.setSectionShortcuts))
+        stack.addArrangedSubview(makeRow(L10n.setGlobalHotkey, makeHotKeyRow()))
         addSeparator(to: stack)
 
-        stack.addArrangedSubview(sectionHeader("行为"))
-        stack.addArrangedSubview(makeRow("每条行数", makePopup(
-            titles: ["1 行", "2 行", "3 行", "4 行", "5 行"],
+        stack.addArrangedSubview(sectionHeader(L10n.setSectionBehavior))
+        stack.addArrangedSubview(makeRow(L10n.setLinesPerRow, makePopup(
+            titles: ["1 \(L10n.setLinesUnit)", "2 \(L10n.setLinesUnit)", "3 \(L10n.setLinesUnit)", "4 \(L10n.setLinesUnit)", "5 \(L10n.setLinesUnit)"],
             values: [1, 2, 3, 4, 5],
             current: intSetting(DittoSettings.linesPerRowKey, default: DittoSettings.defaultLinesPerRow),
             action: #selector(linesPerRowChanged(_:)))))
-        stack.addArrangedSubview(makeRow("出现位置", makePositionPopup()))
+        stack.addArrangedSubview(makeRow(L10n.setPosition, makePositionPopup()))
+        stack.addArrangedSubview(makeRow(L10n.setLanguage, makeLanguagePopup()))
         addSeparator(to: stack)
 
-        stack.addArrangedSubview(sectionHeader("权限与数据"))
-        let launch = NSButton(checkboxWithTitle: "登录时自动启动", target: self, action: #selector(launchToggleChanged(_:)))
+        stack.addArrangedSubview(sectionHeader(L10n.setSectionPrivacy))
+        let launch = NSButton(checkboxWithTitle: L10n.setLaunchAtLogin, target: self, action: #selector(launchToggleChanged(_:)))
         launchButton = launch
         stack.addArrangedSubview(launch)
 
         let statusField = NSTextField(labelWithString: "")
         accessibilityStatusField = statusField
-        let permButton = NSButton(title: "打开系统设置…", target: self, action: #selector(openAccessibilitySettings))
+        let permButton = NSButton(title: L10n.btnOpenSettings + "…", target: self, action: #selector(openAccessibilitySettings))
         permButton.bezelStyle = .rounded
         let permStack = NSStackView(views: [statusField, permButton])
         permStack.orientation = .vertical
         permStack.alignment = .leading
         permStack.spacing = 6
-        stack.addArrangedSubview(makeRow("辅助功能", permStack))
+        stack.addArrangedSubview(makeRow(L10n.setAccessibility, permStack))
 
         stack.addArrangedSubview(makeSeparator(in: stack))
 
-        let clearButton = NSButton(title: "清空历史…", target: self, action: #selector(clearHistory))
+        let clearButton = NSButton(title: L10n.menuClearClipData, target: self, action: #selector(clearHistory))
         clearButton.bezelStyle = .rounded
         clearButton.attributedTitle = NSAttributedString(
-            string: "清空历史…",
+            string: L10n.menuClearClipData,
             attributes: [.foregroundColor: NSColor.systemRed])
         stack.addArrangedSubview(clearButton)
 
@@ -339,7 +348,7 @@ private final class SettingsViewController: NSViewController {
         }
         hotKeyRecorder = recorder
 
-        let reset = NSButton(title: "恢复默认", target: self, action: #selector(resetHotKey(_:)))
+        let reset = NSButton(title: L10n.setResetHotkey, target: self, action: #selector(resetHotKey(_:)))
         reset.bezelStyle = .rounded
         reset.controlSize = .small
 
@@ -350,12 +359,31 @@ private final class SettingsViewController: NSViewController {
         return row
     }
 
+    /// 语言:跟随系统 / 中文 / English(切换即时生效,广播 L10n.changedNotification)
+    private func makeLanguagePopup() -> NSPopUpButton {
+        let popup = NSPopUpButton(frame: .zero, pullsDown: false)
+        popup.target = self
+        popup.action = #selector(languageChanged(_:))
+        for lang in L10n.Lang.allCases {
+            popup.addItem(withTitle: lang.displayName)
+            popup.lastItem?.representedObject = lang.rawValue
+        }
+        popup.selectItem(at: L10n.Lang.allCases.firstIndex(of: L10n.lang) ?? 0)
+        return popup
+    }
+
+    @objc private func languageChanged(_ sender: NSPopUpButton) {
+        guard let raw = sender.selectedItem?.representedObject as? String,
+              let lang = L10n.Lang(rawValue: raw) else { return }
+        L10n.lang = lang   // setter 写 UserDefaults 并广播 → 设置界面即时重建
+    }
+
     /// 出现位置(原版 Positioning At Caret/At Cursor/At Previous;macOS 等价映射)
     private func makePositionPopup() -> NSPopUpButton {
         let popup = NSPopUpButton(frame: .zero, pullsDown: false)
         popup.target = self
         popup.action = #selector(positionModeChanged(_:))
-        let options = [("atCursor", "光标处"), ("atPrevious", "上次位置")]
+        let options = [("atCursor", L10n.menuAtCursor), ("atPrevious", L10n.menuAtPrevious)]
         for (value, title) in options {
             popup.addItem(withTitle: title)
             popup.lastItem?.representedObject = value
@@ -429,10 +457,10 @@ private final class SettingsViewController: NSViewController {
     @objc private func clearHistory() {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "清空历史?"
-        alert.informativeText = "将删除全部未置顶的条目,此操作不可撤销。"
-        alert.addButton(withTitle: "清空")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = L10n.dlgClearTitle
+        alert.informativeText = L10n.dlgClearBody
+        alert.addButton(withTitle: L10n.dlgClear)
+        alert.addButton(withTitle: L10n.dlgCancel)
         alert.buttons.first?.hasDestructiveAction = true
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         store.clear(keepingPinned: true)
@@ -443,7 +471,7 @@ private final class SettingsViewController: NSViewController {
 
     private func refreshDynamicStates() {
         let granted = Permissions.isAccessibilityGranted
-        accessibilityStatusField.stringValue = granted ? "已授权" : "未授权(粘贴回原 App 需要此权限)"
+        accessibilityStatusField.stringValue = granted ? L10n.setGranted : L10n.setNotGranted
         accessibilityStatusField.textColor = granted ? .secondaryLabelColor : .systemRed
         launchButton.state = SMAppService.mainApp.status == .enabled ? .on : .off
     }

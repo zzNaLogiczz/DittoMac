@@ -375,7 +375,7 @@ final class HistoryPanelController: NSWindowController, NSWindowDelegate, NSSear
     // MARK: - 布局(原版 §1:列表 + 底部 33px 工具行)
 
     private func buildContent(in root: PanelRootView) {
-        let placeholder = NSAttributedString(string: "Search", attributes: [
+        let placeholder = NSAttributedString(string: L10n.searchPlaceholder, attributes: [
             .font: NSFont.systemFont(ofSize: 13),
             .foregroundColor: NSColor(srgbRed: 127 / 255, green: 127 / 255, blue: 127 / 255, alpha: 1),
             .obliqueness: 0.25,   // 灰斜体
@@ -561,8 +561,8 @@ final class HistoryPanelController: NSWindowController, NSWindowDelegate, NSSear
     private func updateCaptionSuffix() {
         guard isOnScreen else { return }
         var title = "ditto-mac"
-        if isPersistent { title += " [置顶]" }
-        if UserDefaults.standard.bool(forKey: DittoSettings.pausedKey) { title += " [断开]" }
+        if isPersistent { title += " [\(L10n.tagPinned)]" }
+        if UserDefaults.standard.bool(forKey: DittoSettings.pausedKey) { title += " [\(L10n.tagDisconnected)]" }
         let (sel, total) = listViewController.selectionCounts()
         if total > 0 { title += " - \(sel)/\(total)" }
         rootView.caption.titleText = title
@@ -876,7 +876,7 @@ final class HistoryPanelController: NSWindowController, NSWindowDelegate, NSSear
         }
         guard let item = listViewController.selectedItems().first,
               let window = window else { return }
-        let full = store.payload(id: item.id)?.text ?? item.text ?? "(无文本)"
+        let full = store.payload(id: item.id)?.text ?? item.text ?? L10n.noTextPlaceholder
         let meta = ClipDescription.metaLine(item: item, lastUsedAt: item.lastPasteAt, neverAutoDelete: item.noDelete)
         let text = NSAttributedString(string: "\(meta)\n\n\(full)", attributes: [
             .font: NSFont.systemFont(ofSize: 12),
@@ -892,7 +892,7 @@ final class HistoryPanelController: NSWindowController, NSWindowDelegate, NSSear
         sv.hasVerticalScroller = true
         let tip = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 480, height: 240),
                           styleMask: [.titled, .resizable], backing: .buffered, defer: false)
-        tip.title = "完整描述"
+        tip.title = L10n.descWindowTitle
         tip.contentView = sv
         tip.setFrameAutosaveName("descTooltip")
         // 出现在选中行附近

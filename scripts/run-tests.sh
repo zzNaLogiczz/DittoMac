@@ -10,6 +10,7 @@ swiftc -O \
   -o "${OUT}" \
   "${ROOT}"/Sources/DittoMacKit/*.swift \
   "${ROOT}/Sources/DittoMac/ClipDescription.swift" \
+  "${ROOT}/Sources/DittoMac/L10n.swift" \
   "${ROOT}"/Tests/MiniTestShim/MiniTest.swift \
   "${ROOT}"/Tests/MiniTestShim/main.swift \
   "${ROOT}"/Tests/DittoMacKitTests/ClipStoreTests.swift \

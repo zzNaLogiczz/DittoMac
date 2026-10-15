@@ -18,7 +18,7 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 520),
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
-        window.title = "条目属性"
+        window.title = L10n.propsTitle
         window.isReleasedWhenClosed = false
         self.init(window: window)
         window.delegate = self          // 确保 windowWillClose 被回调以清理静态表
@@ -78,11 +78,11 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
         }
 
         // 按钮行
-        let copyButton = NSButton(title: "复制全文", target: self, action: #selector(copyFullText))
+        let copyButton = NSButton(title: L10n.propsCopyFull, target: self, action: #selector(copyFullText))
         copyButton.bezelStyle = .rounded
         copyButton.keyEquivalent = "c"
         copyButton.keyEquivalentModifierMask = .command
-        let closeButton = NSButton(title: "关闭", target: self, action: #selector(closeWindow))
+        let closeButton = NSButton(title: L10n.propsClose, target: self, action: #selector(closeWindow))
         closeButton.bezelStyle = .rounded
         let buttons = NSStackView(views: [copyButton, closeButton])
         buttons.orientation = .horizontal
@@ -118,7 +118,7 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
     private func buildTextBody(_ payload: RawClip?) -> (NSView, String) {
         let text = payload?.text ?? ""
         let placeholder = text.isEmpty
-        let content = plainAttr(placeholder ? "无文本内容" : text,
+        let content = plainAttr(placeholder ? L10n.propsNoText : text,
                                 font: NSFont.userFixedPitchFont(ofSize: 12) ?? .monospacedSystemFont(ofSize: 12, weight: .regular),
                                 color: placeholder ? .secondaryLabelColor : .labelColor)
         return (makeScrollableText(content), text)
@@ -128,7 +128,7 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
     private func buildFilesBody(_ payload: RawClip?) -> (NSView, String) {
         let joined = (payload?.filePaths ?? []).joined(separator: "\n")
         let placeholder = joined.isEmpty
-        let content = plainAttr(placeholder ? "无文件路径" : joined,
+        let content = plainAttr(placeholder ? L10n.propsNoFiles : joined,
                                 font: NSFont.userFixedPitchFont(ofSize: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .regular),
                                 color: placeholder ? .secondaryLabelColor : .labelColor)
         return (makeScrollableText(content), joined)
@@ -150,12 +150,12 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
         }
 
         let renderedScroll = rendered ?? makeScrollableText(
-            plainAttr("渲染失败或无数据", font: .systemFont(ofSize: 12), color: .secondaryLabelColor))
-        let caption = NSTextField(labelWithString: "纯文本对照")
+            plainAttr(L10n.propsRenderFailed, font: .systemFont(ofSize: 12), color: .secondaryLabelColor))
+        let caption = NSTextField(labelWithString: L10n.propsPlainRef)
         caption.font = NSFont.systemFont(ofSize: 11)
         caption.textColor = .secondaryLabelColor
         let plainScroll = makeScrollableText(
-            plainAttr(plain.isEmpty ? "(空)" : plain,
+            plainAttr(plain.isEmpty ? L10n.propsEmpty : plain,
                       font: NSFont.userFixedPitchFont(ofSize: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .regular)))
         for v: NSView in [renderedScroll, caption, plainScroll] {
             v.translatesAutoresizingMaskIntoConstraints = false
@@ -205,7 +205,7 @@ final class PropertiesWindowController: NSWindowController, NSWindowDelegate {
             container.addArrangedSubview(caption)
             return (container, "")
         }
-        let preview = makeScrollableText(plainAttr("无图片数据或解码失败",
+        let preview = makeScrollableText(plainAttr(L10n.propsNoImage,
                                                    font: .systemFont(ofSize: 12),
                                                    color: .secondaryLabelColor))
         container.addArrangedSubview(preview)

@@ -188,6 +188,16 @@ final class SpecialPasteTests: XCTestCase {
 
 final class ClipDescriptionTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        L10n.lang = .zh   // 文案断言固定中文
+    }
+
+    override func tearDown() {
+        L10n.lang = .system
+        super.tearDown()
+    }
+
     private func item(text: String?) -> ClipItem {
         ClipItem(id: 1, kind: .text, createdAt: Date(timeIntervalSince1970: 1_700_000_000),
                  text: text, pinned: false, byteSize: 1, appName: "Test", contentHash: "h")
@@ -259,4 +269,69 @@ extension DateFormatter {
         f.dateFormat = "yyyy-MM-dd HH:mm"
         return f
     }()
+}
+
+
+// MARK: - i18n 回归(语言切换/关键文案/时间格式)
+
+final class L10nTests: XCTestCase {
+
+    override func tearDown() {
+        L10n.lang = .system
+        super.tearDown()
+    }
+
+    func testLanguageSwitchChangesText() {
+        L10n.lang = .zh
+        XCTAssertTrue(L10n.isChinese)
+        XCTAssertEqual(L10n.menuExit, "退出")
+        XCTAssertEqual(L10n.emptyList, "没有匹配的条目")
+        XCTAssertEqual(L10n.kindText, "纯文本")
+
+        L10n.lang = .en
+        XCTAssertFalse(L10n.isChinese)
+        XCTAssertEqual(L10n.menuExit, "Exit")
+        XCTAssertEqual(L10n.emptyList, "No matching clips")
+        XCTAssertEqual(L10n.kindText, "Text")
+    }
+
+    func testRelativeTimeTokens() {
+        // Fmt.relativeTime 逐字使用这些 L10n 词条;此处验证词条本身的中英文形态
+        L10n.lang = .zh
+        XCTAssertEqual(L10n.timeJustNow, "刚刚")
+        XCTAssertEqual(L10n.timeMinutesAgo(2), "2 分钟前")
+        L10n.lang = .en
+        XCTAssertEqual(L10n.timeJustNow, "Just now")
+        XCTAssertEqual(L10n.timeMinutesAgo(2), "2m ago")
+        XCTAssertEqual(L10n.timeHoursAgo(3), "3h ago")
+        XCTAssertEqual(L10n.timeYesterday, "Yesterday")
+    }
+
+    func testMetaLineLocalized() {
+        let item = ClipItem(id: 1, kind: .text, createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+                            text: "x", pinned: true, byteSize: 1, appName: nil, contentHash: "h")
+        L10n.lang = .zh
+        XCTAssertTrue(ClipDescription.metaLine(item: item).contains("置顶"))
+        L10n.lang = .en
+        let en = ClipDescription.metaLine(item: item)
+        XCTAssertTrue(en.contains("Sticky"))
+        XCTAssertTrue(en.contains("Added: "))
+        XCTAssertTrue(en.contains("Never pasted"))
+    }
+
+    func testPersistenceAcrossRead() {
+        L10n.lang = .en
+        XCTAssertEqual(UserDefaults.standard.string(forKey: L10n.languageKey), "en")
+        L10n.lang = .zh
+        XCTAssertEqual(UserDefaults.standard.string(forKey: L10n.languageKey), "zh")
+    }
+
+    static var registrations: [(String, (L10nTests) -> Void)] {
+        [
+            ("testLanguageSwitchChangesText", { $0.testLanguageSwitchChangesText() }),
+            ("testRelativeTimeTokens", { $0.testRelativeTimeTokens() }),
+            ("testMetaLineLocalized", { $0.testMetaLineLocalized() }),
+            ("testPersistenceAcrossRead", { $0.testPersistenceAcrossRead() }),
+        ]
+    }
 }
