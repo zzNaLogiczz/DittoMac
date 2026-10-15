@@ -6,3 +6,4 @@ DittoMac-*.tar.gz
 *.xcodeproj
 .DS_Store
 upstream/Ditto/
+.idea/
