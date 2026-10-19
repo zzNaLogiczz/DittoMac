@@ -18,6 +18,16 @@ if [[ ! -d "${RESOURCE_BUNDLE}" ]]; then
   exit 1
 fi
 
+# 系统按二进制记录的 SDK 版本决定界面行为:记录成旧版本时整个 App 走旧版兼容外观。
+# 部分 SwiftPM 版本链接时不传 -isysroot,clang 读不到 SDK 版本,会把部署目标(13.0)写进去。
+SDK_EXPECTED="$(xcrun --sdk macosx --show-sdk-version)"
+SDK_STAMPED="$(otool -l "${BIN}" | awk '/LC_BUILD_VERSION/{f=1} f && $1 == "sdk" && !v {v=$2} END{print v}')"
+if [[ "${SDK_STAMPED%%.*}" != "${SDK_EXPECTED%%.*}" ]]; then
+  echo "二进制记录的 SDK 版本是 ${SDK_STAMPED:-未知},当前 SDK 是 ${SDK_EXPECTED},App 会使用旧版系统外观。请重新构建:" >&2
+  echo '  swift build -c release -Xswiftc -Xclang-linker -Xswiftc -isysroot -Xswiftc -Xclang-linker -Xswiftc "$(xcrun --sdk macosx --show-sdk-path)"' >&2
+  exit 1
+fi
+
 # 每次打包都从新版源图生成图标，避免沿用旧 ICNS。
 zsh "${ROOT}/scripts/make-icon.sh"
 

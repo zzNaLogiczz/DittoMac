@@ -8,8 +8,10 @@ jobs:
   test:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Run tests
         run: ./scripts/run-tests.sh
-      - name: Build (release)
-        run: swift build -c release
+      - name: Build and package (release)
+        run: |
+          swift build -c release
+          ./scripts/make-app.sh
