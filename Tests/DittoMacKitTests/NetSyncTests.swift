@@ -34,7 +34,8 @@ final class NetSyncTests: XCTestCase {
         // 布局:魔数 5 + 模式字节 'P' + 头长度 u32 LE + 头 JSON + 载荷长度 u64 LE + 载荷
         XCTAssertEqual(String(data: frame.prefix(5), encoding: .utf8), "DITTO", "魔数")
         XCTAssertEqual(frame[frame.startIndex + 5], UInt8(ascii: "P"), "明文模式字节")
-        XCTAssertGreaterThan(frame.count, 5 + 1 + 4 + 8 + payload.count, "头 JSON 占中间段")
+        let fixedBytes: Int = 5 + 1 + 4 + 8
+        XCTAssertGreaterThan(frame.count, fixedBytes + payload.count, "头 JSON 占中间段")
 
         guard case .frame(let parsed, let body, let consumed) =
                 NetSyncFrame.parse(from: frame, password: nil) else {

@@ -294,7 +294,8 @@ final class Wave5FeatureTests: XCTestCase {
     func testDropFilesRoundtrip() {
         let paths = ["/Users/tom/文件 one.txt", "/tmp/second-file.png"]
         let data = DropFilesCodec.encode(paths: paths)
-        XCTAssertEqual(data.count, 20 + paths.reduce(0) { $0 + $1.utf16.count * 2 + 2 } + 2,
+        let stringBytes: Int = paths.reduce(0) { $0 + $1.utf16.count * 2 + 2 }
+        XCTAssertEqual(data.count, 20 + stringBytes + 2,
                        "头 20 字节 + 逐串(含 null)+ 列表尾 null")
         // 头字段:pFiles=20,fWide=1
         let bytes = [UInt8](data)
@@ -428,7 +429,8 @@ final class Wave5FeatureTests: XCTestCase {
     func testStatsSpanFormatting() {
         let end = Date(timeIntervalSince1970: 1_700_000_000)
         // 3天5小时42分10秒前
-        let start = end.addingTimeInterval(-(3 * 86400 + 5 * 3600 + 42 * 60 + 10))
+        let span: TimeInterval = 3 * 86400 + 5 * 3600 + 42 * 60 + 10
+        let start = end.addingTimeInterval(-span)
         let c = UsageStats.spanComponents(from: start, to: end)
         XCTAssertEqual(c.days, 3)
         XCTAssertEqual(c.hours, 5)
