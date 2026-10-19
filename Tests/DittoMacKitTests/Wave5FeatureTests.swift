@@ -429,8 +429,10 @@ final class Wave5FeatureTests: XCTestCase {
     func testStatsSpanFormatting() {
         let end = Date(timeIntervalSince1970: 1_700_000_000)
         // 3天5小时42分10秒前
-        let span: TimeInterval = 3 * 86400 + 5 * 3600 + 42 * 60 + 10
-        let start = end.addingTimeInterval(-span)
+        let days: TimeInterval = 3 * 86400
+        let hours: TimeInterval = 5 * 3600
+        let minutes: TimeInterval = 42 * 60
+        let start = end.addingTimeInterval(-(days + hours + minutes + 10))
         let c = UsageStats.spanComponents(from: start, to: end)
         XCTAssertEqual(c.days, 3)
         XCTAssertEqual(c.hours, 5)

@@ -270,8 +270,9 @@ final class HotKeyRecorderView: NSView {
             key.lineWidth = 0.5
             key.stroke()
             let size = (legend as NSString).size(withAttributes: attributes)
-            (legend as NSString).draw(at: NSPoint(x: face.midX - size.width / 2, y: face.midY - size.height / 2 + 0.5),
-                                      withAttributes: attributes)
+            let legendX: CGFloat = face.midX - size.width / 2
+            let legendY: CGFloat = face.midY - size.height / 2 + 0.5
+            (legend as NSString).draw(at: NSPoint(x: legendX, y: legendY), withAttributes: attributes)
             x += width + gap
         }
     }
