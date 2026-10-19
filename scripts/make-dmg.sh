@@ -1,6 +1,7 @@
 #!/bin/zsh
 # DittoMac.app → 可安装 DMG(拖拽安装:窗口内含 Applications 软链接,图标布局定制)
 # 版本号:DITTOMAC_VERSION(默认 1.0.0;CI 传 git tag)
+# DITTOMAC_DMG_LAYOUT=0:直接创建只读镜像,不打开 Finder 或操作桌面。
 #
 # 流程:读写镜像(UDRW)→ 挂载 → Finder 设图标位置 → 卸载 → 压缩(UDZO)
 set -euo pipefail
@@ -25,6 +26,14 @@ trap 'rm -rf "${STAGING}" "${RW_DMG}" "${MNT}"' EXIT
 cp -R "${APP}" "${STAGING}/"
 ln -s /Applications "${STAGING}/Applications"
 rm -f "${OUT}"
+
+if [[ "${DITTOMAC_DMG_LAYOUT:-1}" == "0" ]]; then
+  hdiutil create -volname "${VOLNAME} ${VERSION}" \
+    -srcfolder "${STAGING}" -fs HFS+ -format UDZO -ov -quiet "${OUT}"
+  echo "✅ 已生成 ${OUT}"
+  shasum -a 256 "${OUT}"
+  exit 0
+fi
 
 # 1) 读写镜像
 hdiutil create -volname "${VOLNAME}" \

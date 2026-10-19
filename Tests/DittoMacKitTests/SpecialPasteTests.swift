@@ -326,12 +326,36 @@ final class L10nTests: XCTestCase {
         XCTAssertEqual(UserDefaults.standard.string(forKey: L10n.languageKey), "zh")
     }
 
+    func testCaptureSettingsTokens() {
+        // 设置新增两节(捕获格式 / 排除规则)与属性窗口格式块的关键词条
+        L10n.lang = .zh
+        XCTAssertEqual(L10n.setSectionTypes, "捕获格式")
+        XCTAssertEqual(L10n.setSectionExclude, "排除规则")
+        XCTAssertEqual(L10n.setExcludeRegexCol, "正则")
+        XCTAssertEqual(L10n.setExcludeProcessCol, "进程名")
+        XCTAssertTrue(L10n.setTypesEmptyWarning.contains("不记录"))
+        XCTAssertTrue(L10n.setExcludeRuleHint.contains(".*"))
+        XCTAssertEqual(L10n.propsFormatsHeader, "格式")
+        XCTAssertEqual(L10n.propsKeepOneFormat, "至少保留一种格式")
+
+        L10n.lang = .en
+        XCTAssertEqual(L10n.setSectionTypes, "Supported Types")
+        XCTAssertEqual(L10n.setSectionExclude, "Exclude")
+        XCTAssertEqual(L10n.setExcludeRegexCol, "Regex")
+        XCTAssertEqual(L10n.setExcludeProcessCol, "Process")
+        XCTAssertTrue(L10n.setTypesEmptyWarning.contains("nothing"))
+        XCTAssertTrue(L10n.setExcludeRuleHint.contains(".*"))
+        XCTAssertEqual(L10n.propsFormatsHeader, "Formats")
+        XCTAssertEqual(L10n.propsKeepOneFormat, "At least one format must remain")
+    }
+
     static var registrations: [(String, (L10nTests) -> Void)] {
         [
             ("testLanguageSwitchChangesText", { $0.testLanguageSwitchChangesText() }),
             ("testRelativeTimeTokens", { $0.testRelativeTimeTokens() }),
             ("testMetaLineLocalized", { $0.testMetaLineLocalized() }),
             ("testPersistenceAcrossRead", { $0.testPersistenceAcrossRead() }),
+            ("testCaptureSettingsTokens", { $0.testCaptureSettingsTokens() }),
         ]
     }
 }

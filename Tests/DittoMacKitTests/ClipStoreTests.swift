@@ -201,6 +201,149 @@ final class ClipStoreTests: XCTestCase {
         _ = a; _ = b
     }
 
+    // MARK: 附加自定义格式 + 格式删除(原版 Types 表 / Copy Properties "Copy Data")
+
+    func testExtraFormatRoundtrip() {
+        let extras = [ClipFormat(type: "com.dittomac.testfmt", data: Data("payload".utf8)),
+                      ClipFormat(type: "public.xml", data: Data("<a/>".utf8))]
+        let raw = RawClip(text: "extras-roundtrip", extraFormats: extras, appName: "AppX")
+        let item = store.insert(raw, maxDataBytes: 20 << 20)
+        XCTAssertNotNil(item)
+        XCTAssertEqual(item?.byteSize, raw.byteSize, "体积应包含附加格式")
+        let back = store.payload(id: item!.id)
+        XCTAssertEqual(back?.extraFormats, extras, "附加格式应按入库序完整取回")
+        XCTAssertEqual(back?.text, "extras-roundtrip")
+
+        // 哈希按 type 排序参与:捕获顺序不同(数组乱序)的同内容仍是同一条
+        let shuffled = RawClip(text: "extras-roundtrip", extraFormats: extras.reversed(), appName: "AppX")
+        XCTAssertEqual(shuffled.contentHash, raw.contentHash)
+        _ = store.insert(shuffled, maxDataBytes: 20 << 20)
+        XCTAssertEqual(store.count, 1, "附加格式乱序不得新建行")
+
+        // 超限守卫也要把附加格式算进去
+        let big = RawClip(text: "t", extraFormats: [ClipFormat(type: "x", data: Data(repeating: 1, count: 2 << 20))])
+        XCTAssertNil(store.insert(big, maxDataBytes: 1 << 20), "附加格式计入体积上限")
+
+        // 重开库仍能取回
+        let dbPath = store.dbPathForTesting()
+        store = nil
+        store = ClipStore(path: dbPath)
+        XCTAssertEqual(store.payload(id: item!.id)?.extraFormats, extras)
+    }
+
+    func testFormatsListsKnownAndExtras() {
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00])   // PNG 魔数
+        let item = store.insert(RawClip(text: "多格式",
+                                        rtfData: Data("r".utf8),
+                                        htmlData: Data("h".utf8),
+                                        imageData: png,
+                                        extraFormats: [ClipFormat(type: "a.x", data: Data("1".utf8)),
+                                                       ClipFormat(type: "b.y", data: Data("2".utf8))]),
+                                maxDataBytes: 20 << 20)!
+        let fmts = store.formats(id: item.id)
+        XCTAssertEqual(fmts.map(\.type),
+                       [ClipUTI.text, ClipUTI.rtf, ClipUTI.html, ClipUTI.png, "a.x", "b.y"],
+                       "已知格式在前(text/rtf/html/image/files),附加格式按入库序在后")
+        if fmts.count == 6 {
+            XCTAssertEqual(fmts[0].data, Data("多格式".utf8))
+            XCTAssertEqual(fmts[3].data, png)
+        }
+
+        // TIFF 魔数 → public.tiff
+        let tiff = store.insert(RawClip(imageData: Data([0x49, 0x49, 0x2A, 0x00, 0x00])), maxDataBytes: 20 << 20)!
+        XCTAssertEqual(store.formats(id: tiff.id).map(\.type), [ClipUTI.tiff])
+
+        // files 条目:file_paths 列换行拼接为 public.file-url 数据;
+        // text 列只是路径预览(payload 口径置 nil),不算保存的格式、不列出
+        let files = store.insert(RawClip(filePaths: ["/a", "/b"]), maxDataBytes: 20 << 20)!
+        let fileFmts = store.formats(id: files.id)
+        XCTAssertEqual(fileFmts.map(\.type), [ClipUTI.fileURL])
+        XCTAssertEqual(fileFmts.last?.data, Data("/a\n/b".utf8))
+    }
+
+    func testDeleteFormatsUpdatesHashAndDedup() {
+        let extra = ClipFormat(type: "com.dittomac.testfmt", data: Data("extra-1".utf8))
+        let item = store.insert(RawClip(text: "剩余内容", rtfData: Data("{\\rtf1}".utf8), extraFormats: [extra]),
+                                maxDataBytes: 20 << 20)!
+
+        // 删 rtf(置列 NULL)+ 附加格式(删行)
+        XCTAssertTrue(store.deleteFormats(id: item.id, types: [ClipUTI.rtf, "com.dittomac.testfmt"]))
+        let payload = store.payload(id: item.id)
+        XCTAssertEqual(payload?.text, "剩余内容")
+        XCTAssertNil(payload?.rtfData, "已知格式删除应置列 NULL")
+        XCTAssertTrue(payload?.extraFormats.isEmpty == true, "附加格式行应被删除")
+
+        // byte_size 以剩余内容重算;哈希与"重插同样剩余内容"一致 → 去重命中更新后的条目
+        XCTAssertEqual(store.recent(limit: 10).first { $0.id == item.id }?.byteSize,
+                       "剩余内容".utf8.count)
+        let again = store.insert(RawClip(text: "剩余内容"), maxDataBytes: 20 << 20)
+        XCTAssertEqual(store.count, 1, "哈希重算一致 → 同内容去重,不新建")
+        XCTAssertEqual(again?.id, item.id, "应命中更新后的原条目")
+    }
+
+    func testDeleteFormatsRefusesEmptyingClip() {
+        let item = store.insert(RawClip(text: "only-text",
+                                        extraFormats: [ClipFormat(type: "x.y", data: Data("z".utf8))]),
+                                maxDataBytes: 20 << 20)!
+        XCTAssertFalse(store.deleteFormats(id: item.id, types: [ClipUTI.text, "x.y"]), "全删 = 清空条目,应拒绝")
+        XCTAssertEqual(store.payload(id: item.id)?.text, "only-text", "拒绝后内容保持原样")
+        XCTAssertTrue(store.payload(id: item.id)?.extraFormats.isEmpty == false)
+
+        XCTAssertTrue(store.deleteFormats(id: item.id, types: ["x.y"]), "删部分允许")
+        XCTAssertFalse(store.deleteFormats(id: item.id, types: [ClipUTI.text]), "只剩文本时删文本应拒绝")
+        XCTAssertFalse(store.deleteFormats(id: 999, types: [ClipUTI.text]), "条目不存在 → false")
+    }
+
+    func testOrphanFormatsCleanupAfterDeleteClearPrune() {
+        let a = store.insert(RawClip(text: "孤儿-a",
+                                     extraFormats: [ClipFormat(type: "o.a", data: Data("1".utf8))]),
+                             maxDataBytes: 20 << 20)!
+        let pinned = store.insert(RawClip(text: "孤儿-置顶",
+                                          extraFormats: [ClipFormat(type: "o.p", data: Data("2".utf8))]),
+                                  maxDataBytes: 20 << 20)!
+        store.setPinned(pinned.id, true)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 2)
+
+        store.delete(id: a.id)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 1,
+                       "删条目应回收其附加格式行")
+
+        store.clear(keepingPinned: true)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 1,
+                       "置顶条目及其附加格式保留")
+
+        store.clear(keepingPinned: false)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 0)
+
+        _ = store.insert(RawClip(text: "孤儿-prune",
+                                 extraFormats: [ClipFormat(type: "o.c", data: Data("3".utf8))]),
+                         maxDataBytes: 20 << 20)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 1)
+        store.prune(maxItems: 0, maxAgeDays: 3650)
+        XCTAssertEqual(store.scalarIntForTesting("SELECT COUNT(*) FROM clip_formats"), 0,
+                       "prune 删除的条目同样回收附加格式行")
+    }
+
+    /// files 条目的 text 列只是路径预览:格式列表不得把它当 public.utf8-plain-text 暴露,
+    /// 直接按 UTI 请求删除也不得清掉预览;删除其唯一真实格式(file-url)应被拒绝
+    func testFilesKindPreviewTextNotListedAsFormat() {
+        let item = store.insert(RawClip(filePaths: ["/tmp/a.txt", "/tmp/b.txt"], appName: "Finder"),
+                                maxDataBytes: 20 << 20)!
+        let types = store.formats(id: item.id).map(\.type)
+        XCTAssertEqual(types, [ClipUTI.fileURL], "files 条目只应列出 file-url 格式,预览文本不算")
+        XCTAssertFalse(types.contains(ClipUTI.text))
+
+        // 防御性:即使按 text UTI 显式请求,也不清预览列
+        XCTAssertTrue(store.deleteFormats(id: item.id, types: [ClipUTI.text]))
+        XCTAssertEqual(store.payload(id: item.id)?.text, nil, "payload 口径:files 条目 text 本就置 nil")
+        XCTAssertEqual(store.recent(limit: 10).first?.text, "/tmp/a.txt\n/tmp/b.txt",
+                       "列表预览列不得被误删")
+
+        // 唯一真实格式(file-url)不可删 → 拒绝,不留空条目
+        XCTAssertFalse(store.deleteFormats(id: item.id, types: [ClipUTI.fileURL]))
+        XCTAssertEqual(store.payload(id: item.id)?.filePaths?.count, 2)
+    }
+
     static var registrations: [(String, (ClipStoreTests) -> Void)] {
         [
             ("testInsertAndRecent", { $0.testInsertAndRecent() }),
@@ -218,6 +361,12 @@ final class ClipStoreTests: XCTestCase {
             ("testDedupAcrossReopen", { $0.testDedupAcrossReopen() }),
             ("testCorruptDatabaseRecovers", { $0.testCorruptDatabaseRecovers() }),
             ("testMoveClipOrder", { $0.testMoveClipOrder() }),
+            ("testExtraFormatRoundtrip", { $0.testExtraFormatRoundtrip() }),
+            ("testFormatsListsKnownAndExtras", { $0.testFormatsListsKnownAndExtras() }),
+            ("testDeleteFormatsUpdatesHashAndDedup", { $0.testDeleteFormatsUpdatesHashAndDedup() }),
+            ("testDeleteFormatsRefusesEmptyingClip", { $0.testDeleteFormatsRefusesEmptyingClip() }),
+            ("testOrphanFormatsCleanupAfterDeleteClearPrune", { $0.testOrphanFormatsCleanupAfterDeleteClearPrune() }),
+            ("testFilesKindPreviewTextNotListedAsFormat", { $0.testFilesKindPreviewTextNotListedAsFormat() }),
         ]
     }
 }

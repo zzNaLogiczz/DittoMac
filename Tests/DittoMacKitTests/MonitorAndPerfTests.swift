@@ -95,6 +95,81 @@ final class MonitorTests: XCTestCase {
         XCTAssertEqual(captured.count, texts.count, "高频复制不得丢条,未捕获: \(Set(texts).subtracting(captured))")
     }
 
+    // MARK: 白名单门控 + 附加自定义格式(原版 OptionsTypes 的 Types 表)
+
+    /// 写一个带自定义类型(可选带 html)的单 item 到系统剪贴板
+    private func setPasteboardItem(text: String, html: String? = nil,
+                                   extraType: String? = nil, extraData: Data? = nil) {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+        if let html {
+            item.setData(Data(html.utf8), forType: .html)
+        }
+        if let extraType, let extraData {
+            item.setData(extraData, forType: NSPasteboard.PasteboardType(rawValue: extraType))
+        }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.writeObjects([item])
+    }
+
+    /// 收尾恢复:写回普通纯文本,后续测试的首轮导入不携带自定义类型
+    private func restorePasteboard() {
+        setPasteboard("monitor-test-恢复普通文本")
+        pump(0.3)
+    }
+
+    func testCustomFormatCapturedWhenWhitelisted() {
+        monitor.typesWhitelistProvider = {
+            Set(DittoSettings.defaultTypesWhitelist).union(["com.dittomac.testfmt"])
+        }
+        setPasteboardItem(text: "自定义格式-白名单内",
+                          extraType: "com.dittomac.testfmt",
+                          extraData: Data("payload-xyz".utf8))
+        pump(1.2)
+        let clip = received.first { $0.text == "自定义格式-白名单内" }
+        XCTAssertNotNil(clip, "文本应正常捕获")
+        XCTAssertEqual(clip?.extraFormats.count, 1, "白名单内的自定义类型应捕获为附加格式")
+        XCTAssertEqual(clip?.extraFormats.first?.type, "com.dittomac.testfmt")
+        XCTAssertEqual(clip?.extraFormats.first?.data, Data("payload-xyz".utf8))
+        restorePasteboard()
+    }
+
+    func testCustomFormatSkippedWithDefaultWhitelist() {
+        monitor.typesWhitelistProvider = { Set(DittoSettings.defaultTypesWhitelist) }
+        setPasteboardItem(text: "自定义格式-默认白名单",
+                          extraType: "com.dittomac.testfmt",
+                          extraData: Data("p".utf8))
+        pump(1.2)
+        let clip = received.first { $0.text == "自定义格式-默认白名单" }
+        XCTAssertNotNil(clip, "文本不受影响")
+        XCTAssertTrue(clip?.extraFormats.isEmpty == true, "默认白名单外的自定义类型应跳过")
+        restorePasteboard()
+    }
+
+    func testWhitelistGatesKnownFormats() {
+        // 白名单去掉 public.html:文本在名单内应捕获,html 不在名单内不得捕获
+        monitor.typesWhitelistProvider = {
+            Set(DittoSettings.defaultTypesWhitelist).subtracting([ClipUTI.html])
+        }
+        setPasteboardItem(text: "门控-html被关", html: "<b>bold</b>")
+        pump(1.2)
+        let clip = received.first { $0.text == "门控-html被关" }
+        XCTAssertNotNil(clip, "白名单内的文本格式应照常捕获")
+        XCTAssertNil(clip?.htmlData, "白名单外的 html 格式不得捕获")
+        restorePasteboard()
+    }
+
+    func testEmptyWhitelistCapturesNothing() {
+        // 显式空名单(原版空 Types 表)→ 什么都不记
+        monitor.typesWhitelistProvider = { [] }
+        setPasteboard("空名单-不应入库")
+        pump(1.2)
+        XCTAssertFalse(received.contains { $0.text == "空名单-不应入库" },
+                       "显式空白名单下不得捕获任何内容")
+        restorePasteboard()
+    }
+
     static var registrations: [(String, (MonitorTests) -> Void)] {
         [
             ("testCapturesExternalCopy", { $0.testCapturesExternalCopy() }),
@@ -103,6 +178,10 @@ final class MonitorTests: XCTestCase {
             ("testPasteFlowDoesNotPolluteHistory", { $0.testPasteFlowDoesNotPolluteHistory() }),
             ("testPausedStopsCapture", { $0.testPausedStopsCapture() }),
             ("testHighFrequencyCopyNoLoss", { $0.testHighFrequencyCopyNoLoss() }),
+            ("testCustomFormatCapturedWhenWhitelisted", { $0.testCustomFormatCapturedWhenWhitelisted() }),
+            ("testCustomFormatSkippedWithDefaultWhitelist", { $0.testCustomFormatSkippedWithDefaultWhitelist() }),
+            ("testWhitelistGatesKnownFormats", { $0.testWhitelistGatesKnownFormats() }),
+            ("testEmptyWhitelistCapturesNothing", { $0.testEmptyWhitelistCapturesNothing() }),
         ]
     }
 }

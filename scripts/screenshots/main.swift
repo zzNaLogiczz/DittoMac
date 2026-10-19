@@ -30,8 +30,16 @@ final class ScreenshotStore: ClipStoring {
     func search(_ query: String, limit: Int) -> [ClipItem] {
         Array(items.filter { query.isEmpty || ($0.text?.localizedCaseInsensitiveContains(query) == true) }.prefix(limit))
     }
+    func list(parentID: Int64, includeGroupClips: Bool, query: String?, limit: Int) -> [ClipItem] {
+        // 演示数据全部在顶层:按查询过滤后沿用置顶优先的既有顺序
+        search(query ?? "", limit: limit)
+    }
+    func item(id: Int64) -> ClipItem? { items.first { $0.id == id } }
     func payload(id: Int64) -> RawClip? { items.first { $0.id == id }.map { RawClip(text: $0.text) } }
+    func formats(id: Int64) -> [ClipFormat] { [] }
+    @discardableResult func deleteFormats(id: Int64, types: [String]) -> Bool { false }
     func insert(_ raw: RawClip, maxDataBytes: Int) -> ClipItem? { nil }
+    func insert(_ raw: RawClip, maxDataBytes: Int, parentID: Int64) -> ClipItem? { nil }
     func setPinned(_ id: Int64, _ pinned: Bool) {}
     func markPasted(id: Int64, at date: Date) {}
     func setNoDelete(_ id: Int64, _ noDelete: Bool) {}
@@ -39,6 +47,32 @@ final class ScreenshotStore: ClipStoring {
     func delete(id: Int64) {}
     func clear(keepingPinned: Bool) {}
     func prune(maxItems: Int, maxAgeDays: Int) {}
+
+    // 组系统:只读演示夹具,组操作全部空实现(面板只读展示)
+    @discardableResult func createGroup(name: String, parentID: Int64) -> ClipItem? { nil }
+    func childGroups(of parentID: Int64) -> [ClipItem] { [] }
+    @discardableResult func moveClips(ids: [Int64], toParent parentID: Int64) -> Bool { false }
+    @discardableResult func duplicateClips(ids: [Int64], toParent parentID: Int64) -> Bool { false }
+    @discardableResult func renameGroup(id: Int64, name: String) -> Bool { false }
+    @discardableResult func deleteGroup(id: Int64) -> Bool { false }
+    func groupHotkey(id: Int64) -> GroupHotkey? { nil }
+    func setGroupHotkey(id: Int64, hotkey: GroupHotkey?) {}
+    func allGroupHotkeys() -> [(groupID: Int64, hotkey: GroupHotkey)] { [] }
+
+    // 多置顶/标题与内容编辑/删除数据/条目热键:同样只读空实现(补齐 ClipStoring 全量成员)
+    func setStickyTop(_ id: Int64) {}
+    func setStickyLast(_ id: Int64) {}
+    func replaceStickyTop(_ id: Int64) {}
+    func setSticky(_ id: Int64, _ sticky: Bool) {}
+    func fixupStickyOrder() {}
+    func setTitle(_ id: Int64, _ title: String?) {}
+    @discardableResult func updateClipContent(id: Int64, text: String?, rtfData: Data?, htmlData: Data?) -> Bool { false }
+    func searchForDelete(filters: ClipDeleteFilter) -> [ClipItem] { [] }
+    @discardableResult func deleteClips(ids: [Int64]) -> (deleted: Int, skipped: Int) { (0, 0) }
+    func databaseSizeBytes() -> Int { 0 }
+    func clipHotkey(id: Int64) -> ClipHotkey? { nil }
+    func setClipHotkey(id: Int64, hotkey: ClipHotkey?) {}
+    func allClipHotkeys() -> [(clipID: Int64, hotkey: ClipHotkey)] { [] }
 }
 
 let app = NSApplication.shared

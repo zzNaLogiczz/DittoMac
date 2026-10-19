@@ -54,6 +54,14 @@ public func XCTAssertLessThanOrEqual<T: Comparable>(_ a: T, _ b: T, _ message: S
     record(a <= b, "assertLessThanOrEqual: \(a) > \(b) \(message)", file: file, line: line)
 }
 
+/// 浮点近似断言(Wave4:透明度 alpha / 行高等浮点纯函数)
+public func XCTAssertEqual<T: FloatingPoint>(_ a: T, _ b: T, accuracy: T, _ message: String = "",
+                                             file: StaticString = #fileID, line: UInt = #line) {
+    record(abs(a - b) <= abs(accuracy),
+           "assertEqual(accuracy): \(a) != \(b) ± \(accuracy) \(message)",
+           file: file, line: line)
+}
+
 public func XCTAssertGreaterThan<T: Comparable>(_ a: T, _ b: T, _ message: String = "",
                                                 file: StaticString = #fileID, line: UInt = #line) {
     record(a > b, "assertGreaterThan: \(a) <= \(b) \(message)", file: file, line: line)

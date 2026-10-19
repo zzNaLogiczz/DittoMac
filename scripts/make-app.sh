@@ -4,12 +4,17 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${ROOT}/.build/release/DittoMac"
+RESOURCE_BUNDLE="${ROOT}/.build/release/DittoMac_DittoMacKit.bundle"
 APP="${ROOT}/DittoMac.app"
 VERSION="${DITTOMAC_VERSION:-1.0.0}"
 VERSION="${VERSION#v}"   # 允许传 v1.2.3
 
 if [[ ! -x "${BIN}" ]]; then
   echo "未找到 ${BIN},先执行:swift build -c release" >&2
+  exit 1
+fi
+if [[ ! -d "${RESOURCE_BUNDLE}" ]]; then
+  echo "未找到资源包 ${RESOURCE_BUNDLE},请重新执行:swift build -c release" >&2
   exit 1
 fi
 
@@ -19,6 +24,8 @@ zsh "${ROOT}/scripts/make-icon.sh"
 rm -rf "${APP}"
 mkdir -p "${APP}/Contents/MacOS" "${APP}/Contents/Resources"
 cp "${BIN}" "${APP}/Contents/MacOS/DittoMac"
+# Bundle.module 在正式 App 内从 Contents/Resources 查找 SwiftPM 资源包。
+ditto "${RESOURCE_BUNDLE}" "${APP}/Contents/Resources/DittoMac_DittoMacKit.bundle"
 
 # macOS 版应用图标（基于原版 Ditto 标识重新设计，GPL-3.0）
 ICON_SRC="${ROOT}/Resources/AppIcon.icns"

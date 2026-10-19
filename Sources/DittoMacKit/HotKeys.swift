@@ -68,6 +68,14 @@ public final class HotKeyCenter {
         }
     }
 
+    /// 注销所有 id 以指定前缀开头的热键(组热键 "group.<id>" 批量重注册用;
+    /// 多命名热键运行期增删本就支持,这是便捷批量口)
+    public func unregisterAll(matchingPrefix prefix: String) {
+        for id in Array(slotByID.keys) where id.hasPrefix(prefix) {
+            unregister(id: id)
+        }
+    }
+
     private func release(slot: UInt32) {
         if let ref = hotKeyRefs.removeValue(forKey: slot) {
             UnregisterEventHotKey(ref)
