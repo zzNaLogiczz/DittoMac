@@ -404,14 +404,29 @@ public enum ClipPackage {
     private static func decodeUnicodeText(_ data: Data) -> String? {
         let bytes = [UInt8](data)
         guard bytes.count >= 2, bytes.count % 2 == 0 else { return nil }
+        var units: [UInt16] = []
         var end = 0
         while end + 1 < bytes.count {
-            if bytes[end] == 0 && bytes[end + 1] == 0 {
-                return String(data: Data(bytes[..<end]), encoding: .utf16LittleEndian)
-            }
+            let unit = UInt16(bytes[end]) | UInt16(bytes[end + 1]) << 8
+            if unit == 0 { return decodeStrictUTF16(units) }
+            units.append(unit)
             end += 2
         }
         return nil   // CF_UNICODETEXT 必须以 UTF-16 null 终止
+    }
+
+    /// 严格 UTF-16 解码:孤立代理项视为损坏(macOS 14 及更早的 Foundation 会容错解码,不能依赖)
+    private static func decodeStrictUTF16(_ units: [UInt16]) -> String? {
+        var scalars = String.UnicodeScalarView()
+        var iterator = units.makeIterator()
+        var decoder = UTF16()
+        while true {
+            switch decoder.decode(&iterator) {
+            case .scalarValue(let scalar): scalars.append(scalar)
+            case .emptyInput: return String(scalars)
+            case .error: return nil
+            }
+        }
     }
 
     static func isPNGData(_ data: Data) -> Bool {
