@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Run tests
         run: ./scripts/run-tests.sh
@@ -50,7 +50,7 @@ jobs:
         run: ./scripts/make-dmg.sh
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             DittoMac-${{ github.ref_name }}-arm64.dmg
