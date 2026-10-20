@@ -12,6 +12,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # 产物文件名统一用不带 v 的版本号(与 make-app/make-dmg 一致)
+      - name: Resolve version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Run tests
         run: ./scripts/run-tests.sh
 
@@ -41,19 +45,23 @@ jobs:
 
       - name: Package tar.gz(无 quarantine,curl 安装用)
         run: |
-          tar -czf DittoMac-${{ github.ref_name }}-arm64.tar.gz DittoMac.app
-          shasum -a 256 DittoMac-${{ github.ref_name }}-arm64.tar.gz > DittoMac-${{ github.ref_name }}-arm64.tar.gz.sha256
+          tar -czf "DittoMac-${VERSION}-arm64.tar.gz" DittoMac.app
+          shasum -a 256 "DittoMac-${VERSION}-arm64.tar.gz" > "DittoMac-${VERSION}-arm64.tar.gz.sha256"
 
       - name: Package DMG(拖拽安装)
         env:
           DITTOMAC_VERSION: ${{ github.ref_name }}
-        run: ./scripts/make-dmg.sh
+        run: |
+          ./scripts/make-dmg.sh
+          shasum -a 256 "DittoMac-${VERSION}-arm64.dmg" > "DittoMac-${VERSION}-arm64.dmg.sha256"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v3
         with:
+          fail_on_unmatched_files: true
           files: |
-            DittoMac-${{ github.ref_name }}-arm64.dmg
-            DittoMac-${{ github.ref_name }}-arm64.tar.gz
-            DittoMac-${{ github.ref_name }}-arm64.tar.gz.sha256
+            DittoMac-${{ env.VERSION }}-arm64.dmg
+            DittoMac-${{ env.VERSION }}-arm64.dmg.sha256
+            DittoMac-${{ env.VERSION }}-arm64.tar.gz
+            DittoMac-${{ env.VERSION }}-arm64.tar.gz.sha256
           generate_release_notes: true

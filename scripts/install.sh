@@ -33,7 +33,8 @@ fi
 
 echo "==> 查询最新版本($REPO)…"
 API="https://api.github.com/repos/$REPO/releases/latest"
-TARBALL_URL="$(curl -fsSL "$API" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["assets"][0]["browser_download_url"])')"
+# 按文件名取 tar.gz:Release 里还有 DMG 和校验文件,附件顺序不固定
+TARBALL_URL="$(curl -fsSL "$API" | /usr/bin/python3 -c 'import json,sys; print(next(a["browser_download_url"] for a in json.load(sys.stdin)["assets"] if a["name"].endswith("-arm64.tar.gz")))')"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
